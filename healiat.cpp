@@ -1284,10 +1284,10 @@ BOOL healiat( DWORD pid, DWORD targetimage, char *targetpath )
 		{
 			// if it's not with a nop
 			BOOL nopisahead = FALSE;
-			if( index != 0 && code[index-1] == (BYTE)'\x90' )
-				nopisahead = TRUE;
-			else if( code[index + 5] == (BYTE)'\x90' )
+			if( code[index + 5] == (BYTE)'\x90' )
 				nopisahead = FALSE;
+			else if( index != 0 && code[index-1] == (BYTE)'\x90' )
+				nopisahead = TRUE;
 			else
 			{
 				// leave log 
@@ -1375,8 +1375,8 @@ BOOL healiat( DWORD pid, DWORD targetimage, char *targetpath )
 
 			DWORD readcodeaddr = 0;
 
-			// check it's being called for... say 20 lines
-			for( int i = 0; i < 20; i ++ )
+			// check it's being called for... say 40 lines
+			for( int i = 0; i < 40; i ++ )
 			{
 				tmplen = Disasm( (char*)code + tmpindex, 20, 0, &tmpdasm, DISASM_CODE );
 				if( memcmp( tmpdasm.result, "CALL ", 5 ) == 0 )
@@ -1496,8 +1496,10 @@ int main( int argc, char **argv )
 	printf( " usage : healiat.exe pid module\n", argv[0] );
 	if( argc < 2 )
 	{
+		char tmp[300];
 		printf( " target pid : " );
-		scanf( "%d\n", &pid );
+		gets( tmp );
+		pid = atoi( tmp );
 	}
 	else
 		pid = atoi( argv[1] );
