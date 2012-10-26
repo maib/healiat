@@ -1,4 +1,6 @@
 
+// suppose all path var lengths are MAX_PATH
+
 #include <windows.h>
 #include <stdio.h>
 #include <TlHelp32.h>
@@ -516,7 +518,7 @@ DWORD FindModule( DWORD pid, char *name, OPTIONAL OUT char *modpath )
 		name[0] == NULL )
 	{
 		if( modpath != NULL )
-			strcpy( modpath, me.szExePath );
+			strncpy( modpath, me.szExePath, MAX_PATH );
 		return (DWORD)me.hModule;
 	}
 
@@ -525,7 +527,7 @@ DWORD FindModule( DWORD pid, char *name, OPTIONAL OUT char *modpath )
 		{
 			CloseHandle( hs );
 			if( modpath != NULL )
-				strcpy( modpath, me.szExePath );
+				strncpy( modpath, me.szExePath, MAX_PATH );
 			return (DWORD)( me.hModule );
 		}
 	} while( Module32Next( hs, &me ) );
@@ -536,16 +538,16 @@ DWORD FindModule( DWORD pid, char *name, OPTIONAL OUT char *modpath )
 
 BOOL IsRedirected( DWORD pid, BYTE *code, OPTIONAL OUT DWORD *redirectedTo )
 {
-	char module[300];
-	char name[300];
-	strncpy( module, (char*)code, 300 );
+	char module[MAX_PATH];
+	char name[MAX_PATH];
+	strncpy( module, (char*)code, MAX_PATH );
 	char *ptr;
 	ptr = strchr( module, '.' );
 	if( ptr == NULL )
 		return FALSE;
 
 	*ptr = NULL;
-	strncpy( name, ptr + 1, 300 );
+	strncpy( name, ptr + 1, MAX_PATH );
 
 
 	if( strlen( name ) > 100 )
@@ -570,7 +572,7 @@ BOOL IsRedirected( DWORD pid, BYTE *code, OPTIONAL OUT DWORD *redirectedTo )
 #define MAX_JCC		5
 typedef struct apis
 {
-//	char name[300];
+//	char name[MAX_PATH];
 	DWORD addr;
 	BOOL redirecting;
 	DWORD redirectedTo;
@@ -582,7 +584,7 @@ typedef struct apis
 
 typedef struct dllinfo
 {
-	char name[300];
+	char name[MAX_PATH];
 	DWORD loadedbase;
 	apis *apilist;
 	int numofapi;
@@ -617,7 +619,7 @@ BOOL CollectJccInfoProcess( DWORD pid, OUT dllinfo **info )
 			cur->next = (dllinfo*)calloc( sizeof(dllinfo), 1 );
 			cur = cur->next;
 		}
-		strcpy( cur->name, me.szModule );
+		strncpy( cur->name, me.szModule, MAX_PATH );
 		pework pedll;
 		if( pedll.Open( me.szExePath ) == FALSE )
 		{
@@ -765,7 +767,7 @@ BOOL FindByCodeDump( stack<codegadget *> codestack, dllinfo *info, OUT char *dll
 			{
 				// found
 				*original_apiaddr = cur->apilist[i].addr;
-				strcpy( dllname, cur->name );
+				strncpy( dllname, cur->name, MAX_PATH );
 				return TRUE;
 			}
 		}
@@ -790,7 +792,7 @@ BOOL MatchAddrApi( DWORD pid, dllinfo *info, DWORD calladdr, OUT char *dllname, 
 		{
 			if( cur->apilist[i].redirectedTo == calladdr )
 			{
-				strcpy( dllname, cur->name );
+				strncpy( dllname, cur->name, MAX_PATH );
 				*original_apiaddr = cur->apilist[i].addr;
 				return TRUE;
 			}
@@ -810,7 +812,7 @@ BOOL MatchAddrApi( DWORD pid, dllinfo *info, DWORD calladdr, OUT char *dllname, 
 		{
 			if( cur->apilist[i].addr == calladdr )
 			{
-				strcpy( dllname, cur->name );
+				strncpy( dllname, cur->name, MAX_PATH );
 				*original_apiaddr = cur->apilist[i].addr;
 				return TRUE;
 			}
@@ -939,7 +941,7 @@ BOOL MatchAddrApi( DWORD pid, dllinfo *info, DWORD calladdr, OUT char *dllname, 
 						{
 							if( cur->apilist[i].jcc[j] == jccfound )
 							{
-								strcpy( dllname, cur->name );
+								strncpy( dllname, cur->name, MAX_PATH );
 								*original_apiaddr = cur->apilist[i].addr;
 								return TRUE;
 							}
@@ -1056,7 +1058,7 @@ BOOL MatchAddrApi( DWORD pid, dllinfo *info, DWORD calladdr, OUT char *dllname, 
 			{
 				if( cur->apilist[i].jcc[j] == jccfound )
 				{
-					strcpy( dllname, cur->name );
+					strncpy( dllname, cur->name, MAX_PATH );
 					*original_apiaddr = cur->apilist[i].addr;
 					return TRUE;
 				}
@@ -1078,7 +1080,7 @@ typedef enum redir_type
 typedef struct code_recorded
 {
 	DWORD codeaddr;
-	char dllname[300];
+	char dllname[MAX_PATH];
 	DWORD apiaddr;
 	redir_type type;
 	code_recorded *next;
@@ -1086,7 +1088,7 @@ typedef struct code_recorded
 
 typedef struct dll_recorded
 {
-	char dllname[300];
+	char dllname[MAX_PATH];
 	DWORD apiaddr[3000];	// temporary...
 	dll_recorded *next;
 }dll_recorded;
@@ -1115,12 +1117,12 @@ BOOL RecordFoundApi( DWORD codeaddr,
 
 //	cur = cur->next;
 
-	strcpy( cur->dllname, dll );
+	strncpy( cur->dllname, dll, MAX_PATH );
 	cur->codeaddr = codeaddr;
 	cur->apiaddr = apiaddr;
 	cur->type = type;
 
-	// record dll ¾Æ¿À ±ÍÂú¾Æ
+	// record dll .. i'm gettin bored & tired...
 	dll_recorded *cur2 = dllrec;
 	BOOL apifound = FALSE;
 	BOOL dllfound = FALSE;
@@ -1155,7 +1157,7 @@ BOOL RecordFoundApi( DWORD codeaddr,
 
 //		cur2 = cur2->next;
 
-		strcpy( cur2->dllname, dll );
+		strncpy( cur2->dllname, dll, MAX_PATH );
 		cur2->apiaddr[0] = apiaddr;
 
 		return TRUE;
@@ -1175,7 +1177,7 @@ BOOL FindRedirectionData( DWORD rediraddr, code_recorded *codes, OUT char *dllna
 		if( cur->codeaddr == rediraddr )
 		{
 			// found
-			strcpy( dllname, cur->dllname );
+			strncpy( dllname, cur->dllname, MAX_PATH );
 			*apiaddr = cur->apiaddr;
 			return TRUE;
 		}
@@ -1259,7 +1261,7 @@ BOOL healiat( DWORD pid, DWORD targetimage, char *targetpath )
 	int progress = 0;
 	while( ( index + len ) < (int)size - 10 )
 	{
-		char dllname[300] = {0,};
+		char dllname[MAX_PATH] = {0,};
 		DWORD apiaddr;
 		t_disasm dd;
 
@@ -1496,7 +1498,7 @@ int main( int argc, char **argv )
 	printf( " usage : healiat.exe pid module\n", argv[0] );
 	if( argc < 2 )
 	{
-		char tmp[300];
+		char tmp[MAX_PATH];
 		printf( " target pid : " );
 		gets( tmp );
 		pid = atoi( tmp );
