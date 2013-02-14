@@ -24,6 +24,91 @@ using namespace std;
 
 
 
+
+
+
+BOOL SetPrivilege(
+				  HANDLE hToken,          // access token handle
+				  LPCTSTR lpszPrivilege,  // name of privilege to enable/disable
+				  BOOL bEnablePrivilege   // to enable or disable privilege
+				  ) 
+{
+	TOKEN_PRIVILEGES tp;
+	LUID luid;
+	
+	if ( !LookupPrivilegeValue( 
+        NULL,            // lookup privilege on local system
+        lpszPrivilege,   // privilege to lookup 
+        &luid ) )        // receives LUID of privilege
+	{
+		printf("LookupPrivilegeValue error: %u\n", GetLastError() ); 
+		return FALSE; 
+	}
+	
+	tp.PrivilegeCount = 1;
+	tp.Privileges[0].Luid = luid;
+	if (bEnablePrivilege)
+		tp.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
+	else
+		tp.Privileges[0].Attributes = 0;
+	
+	// Enable the privilege or disable all privileges.
+	
+	if ( !AdjustTokenPrivileges(
+		hToken, 
+		FALSE, 
+		&tp, 
+		sizeof(TOKEN_PRIVILEGES), 
+		(PTOKEN_PRIVILEGES) NULL, 
+		(PDWORD) NULL) )
+	{ 
+		printf("AdjustTokenPrivileges error: %u\n", GetLastError() ); 
+		return FALSE; 
+	} 
+	
+	if (GetLastError() == ERROR_NOT_ALL_ASSIGNED)
+		
+	{
+		printf("The token does not have the specified privilege. \n");
+		return FALSE;
+	} 
+	
+	return TRUE;
+}
+
+void RisePriv()
+{
+	HANDLE hToken;
+	if( !OpenThreadToken( GetCurrentThread(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, FALSE, &hToken ) )
+	{
+		if( GetLastError() == ERROR_NO_TOKEN )
+		{
+			if( !ImpersonateSelf( SecurityImpersonation) )
+			{
+				puts( "ImpersonateSelf failure" );
+				return;
+			}
+			if( !OpenThreadToken( GetCurrentThread(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, FALSE, &hToken ) )
+			{
+				puts( "OpenThreadToken failure" );
+				return;
+			}
+		}
+		else
+		{
+			puts( "OpenThreadToken failure" );
+			return;
+		}
+	}
+
+	SetPrivilege( hToken, "SeDebugPrivilege", TRUE );
+
+}
+
+
+
+
+
 BOOL rread( HANDLE hproc, DWORD addr, OUT void *buf, int size )
 {
 	DWORD tmp;
@@ -634,7 +719,8 @@ BOOL CollectJccInfoProcess( DWORD pid, OUT dllinfo **info )
 
 		IMAGE_EXPORT_DIRECTORY export;
 		if( rread2( pid, 
-					pedll.GetImageBase() + pedll.GetNH()->OptionalHeader.DataDirectory[0].VirtualAddress, 
+					//pedll.GetImageBase() + pedll.GetNH()->OptionalHeader.DataDirectory[0].VirtualAddress, 
+					(DWORD)me.hModule + pedll.GetNH()->OptionalHeader.DataDirectory[0].VirtualAddress, 
 					&export, 
 					sizeof(export) ) == FALSE )
 		{
@@ -1510,6 +1596,8 @@ int main( int argc, char **argv )
 		puts( "wrong pid" );
 		return 0;
 	}
+
+	RisePriv();
 
 	char *module;
 	if( argc < 3 )
