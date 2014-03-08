@@ -747,7 +747,11 @@ BOOL CollectJccInfoProcess( DWORD pid, OUT dllinfo **info )
 			cur->apilist[i].addr = tmp;
 
 			// find first jcc
-			rread2( pid, cur->apilist[i].addr, code, 0x3000 );
+			if( rread2( pid, cur->apilist[i].addr, code, 0x3000 ) == FALSE )
+			{
+				if( rread2( pid, cur->apilist[i].addr, code, 0x1000 ) == FALSE )
+					continue;
+			}
 			int index = 0;
 			DWORD redirectedTo;
 			if( IsRedirected( pid, code, &redirectedTo ) == TRUE )
