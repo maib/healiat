@@ -687,7 +687,7 @@ BOOL CollectJccInfoProcess( DWORD pid, OUT dllinfo **info )
 	dllinfo *cur = NULL;
 	MODULEENTRY32 me = {0,};
 	me.dwSize = sizeof(me);
-	BYTE *code = (BYTE*)calloc( 0x3000, 1 );
+	BYTE *code = (BYTE*)calloc( 0x6000, 1 );
 
 	HANDLE hs = CreateToolhelp32Snapshot( TH32CS_SNAPMODULE, pid );
 	if( hs == INVALID_HANDLE_VALUE )
@@ -697,6 +697,9 @@ BOOL CollectJccInfoProcess( DWORD pid, OUT dllinfo **info )
 		eg( "Module32First" );
 
 	do {
+		// skip loaddll.exe
+		if( strcmp( me.szModule, "loaddll.exe" ) == 0 )
+			continue;
 		if( cur == NULL )
 			cur = *info;
 		else
@@ -747,11 +750,16 @@ BOOL CollectJccInfoProcess( DWORD pid, OUT dllinfo **info )
 			cur->apilist[i].addr = tmp;
 
 			// find first jcc
-			if( rread2( pid, cur->apilist[i].addr, code, 0x3000 ) == FALSE )
+			// should code buffering func on this... someday
+			if( rread2( pid, cur->apilist[i].addr, code, 0x6000 ) == FALSE )
 			{
-				if( rread2( pid, cur->apilist[i].addr, code, 0x1000 ) == FALSE )
-					continue;
+				if( rread2( pid, cur->apilist[i].addr, code, 0x3000 ) == FALSE )
+					if( rread2( pid, cur->apilist[i].addr, code, 0x1000 ) == FALSE )
+						continue;
 			}
+			// exporting var? ex)loaddll.exe 
+			if(memcmp(code, "\x00\x00\x00\x00", 4) == 0)
+				continue;
 			int index = 0;
 			DWORD redirectedTo;
 			if( IsRedirected( pid, code, &redirectedTo ) == TRUE )
